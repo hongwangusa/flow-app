@@ -117,9 +117,11 @@ export default function DashboardClient({ email, userName, level, xpCurrent, str
           {[
             { href:'/tasks',       icon:'⚔️', en:'Daily Quests',        zh:'每日任务',   primary:true  },
             { href:'/habits',      icon:'🔥', en:'Habit Tracker',       zh:'习惯追踪',   primary:false },
+            { href:'/coach',       icon:'🤖', en:'AI Coach',            zh:'AI教练',    primary:false },
             { href:'/leaderboard', icon:'🏆', en:'Leaderboard',         zh:'排行榜',    primary:false },
             { href:'/social',      icon:'👥', en:'Social',              zh:'社交圈',    primary:false },
             { href:'/profile',     icon:'👤', en:'Profile',             zh:'个人资料',   primary:false },
+            { href:'/settings',    icon:'⚙️', en:'Settings',            zh:'设置',      primary:false },
             { href:'/tasks',       icon:'✅', en:`${tasksDone} Done`,   zh:`完成 ${tasksDone}`, primary:false },
           ].map(item => (
             <Link key={item.href + item.en} href={item.href}
