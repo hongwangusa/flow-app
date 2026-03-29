@@ -27,8 +27,8 @@ export default function SocialPage() {
   const [lang, setLang] = useState<'en'|'zh'>('en')
   const isZh = lang === 'zh'
   const [tab, setTab] = useState<Tab>('feed')
-  const [following, setFollowing] = useState<Set<number>>(
-    new Set(MOCK_FRIENDS.filter(f => f.isFollowing).map(f => f.id))
+  const [following, setFollowing] = useState<number[]>(
+    MOCK_FRIENDS.filter(f => f.isFollowing).map(f => f.id)
   )
 
   const tabs: { id: Tab; en: string; zh: string; count?: number }[] = [
@@ -138,7 +138,7 @@ export default function SocialPage() {
         {/* Friends List */}
         {tab === 'friends' && (
           <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:16}}>
-            {MOCK_FRIENDS.filter(f => following.has(f.id)).map(friend => (
+            {MOCK_FRIENDS.filter(f => following.includes(f.id)).map(friend => (
               <div key={friend.id} style={{display:'flex',alignItems:'center',gap:10,
                 padding:'10px 12px',background:'#F8FAFC',border:'1px solid #E2E8F0',borderRadius:12}}>
                 <div style={{position:'relative',flexShrink:0}}>
@@ -179,7 +179,7 @@ export default function SocialPage() {
             <p style={{fontSize:12,color:'#9CA3AF',marginBottom:4}}>
               {isZh?'你可能认识的人':'People you may know'}
             </p>
-            {MOCK_FRIENDS.filter(f => !following.has(f.id)).map(person => (
+            {MOCK_FRIENDS.filter(f => !following.includes(f.id)).map(person => (
               <div key={person.id} style={{display:'flex',alignItems:'center',gap:10,
                 padding:'10px 12px',background:'#F8FAFC',border:'1px solid #E2E8F0',borderRadius:12}}>
                 <div style={{width:40,height:40,borderRadius:'50%',flexShrink:0,
@@ -194,7 +194,7 @@ export default function SocialPage() {
                     Lv.{person.level} · 🔥{person.streak} streak
                   </div>
                 </div>
-                <button onClick={() => setFollowing(prev => new Set([...prev, person.id]))}
+                <button onClick={() => setFollowing(prev => [...prev, person.id])}
                   style={{background:'linear-gradient(135deg,#1B8A8F,#2ABFBF)',border:'none',
                     borderRadius:10,padding:'7px 14px',fontSize:12,fontWeight:700,
                     color:'white',cursor:'pointer',flexShrink:0}}>
@@ -202,7 +202,7 @@ export default function SocialPage() {
                 </button>
               </div>
             ))}
-            {MOCK_FRIENDS.filter(f => !following.has(f.id)).length === 0 && (
+            {MOCK_FRIENDS.filter(f => !following.includes(f.id)).length === 0 && (
               <div style={{textAlign:'center',padding:'32px 0',color:'#C0CBDA'}}>
                 <div style={{fontSize:28,marginBottom:8}}>🎉</div>
                 <div style={{fontSize:13}}>{isZh?'你已关注所有人！':'You\'re following everyone!'}</div>
