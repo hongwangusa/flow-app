@@ -41,8 +41,18 @@ export async function signUpWithEmail(formData: FormData) {
     })
   }
 
-  if (data.session) redirect('/dashboard')
-  else redirect('/register?success=check_email')
+  // Email is auto-confirmed via DB trigger for MVP testing.
+  // Re-fetch session after a short moment, or redirect to login to sign in.
+  if (data.session) {
+    redirect('/dashboard')
+  } else if (data.user && !data.session) {
+    // User created but no session yet — sign them in directly
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+    if (!signInError) redirect('/dashboard')
+    else redirect('/register?success=check_email')
+  } else {
+    redirect('/register?success=check_email')
+  }
 }
 
 export async function signUpWithGoogle() {

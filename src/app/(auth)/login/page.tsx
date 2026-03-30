@@ -86,18 +86,23 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* Social buttons */}
+        {/* Social buttons — coming soon */}
         {(['apple','google','facebook'] as const).map(p => (
-          <button key={p} onClick={() => handleOAuth(p)} disabled={isPending}
+          <div key={p} title={isZh ? '即将推出' : 'Coming soon — use email for now'}
             style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'center',
-              gap:10,padding:'11px 16px',marginBottom:10,background:'white',
+              gap:10,padding:'11px 16px',marginBottom:10,background:'#F8FAFC',
               border:'1.5px solid #E2E8F0',borderRadius:12,fontSize:14,fontWeight:600,
-              color:'#1A2332',cursor:'pointer',transition:'all .15s'}}>
-            <span style={{fontSize:18}}>
+              color:'#C0CBDA',cursor:'not-allowed',userSelect:'none',
+              position:'relative'}}>
+            <span style={{fontSize:18,opacity:0.4}}>
               {p==='apple'?'🍎':p==='google'?'🔵':'🔷'}
             </span>
-            {p==='apple'?t.apple:p==='google'?t.google:t.facebook}
-          </button>
+            <span style={{opacity:0.5}}>{p==='apple'?t.apple:p==='google'?t.google:t.facebook}</span>
+            <span style={{position:'absolute',right:12,fontSize:10,color:'#C9A84C',fontWeight:700,
+              background:'#FFFBF0',border:'1px solid #E8D897',borderRadius:4,padding:'1px 5px'}}>
+              {isZh?'即将推出':'Soon'}
+            </span>
+          </div>
         ))}
 
         {/* Divider */}

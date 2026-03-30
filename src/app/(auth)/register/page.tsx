@@ -80,18 +80,19 @@ export default function RegisterPage() {
         )}
 
         {(['apple','google','facebook'] as const).map(p => (
-          <button key={p} onClick={() => startTransition(async () => {
-            if(p==='google') await signUpWithGoogle()
-            else if(p==='facebook') await signUpWithFacebook()
-            else await signUpWithApple()
-          })} disabled={isPending}
+          <div key={p} title={isZh ? '即将推出' : 'Coming soon — use email for now'}
             style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'center',
-              gap:10,padding:'10px 16px',marginBottom:9,background:'white',
+              gap:10,padding:'10px 16px',marginBottom:9,background:'#F8FAFC',
               border:'1.5px solid #E2E8F0',borderRadius:12,fontSize:14,fontWeight:600,
-              color:'#1A2332',cursor:'pointer'}}>
-            <span style={{fontSize:18}}>{p==='apple'?'🍎':p==='google'?'🔵':'🔷'}</span>
-            {p==='apple'?t.apple:p==='google'?t.google:t.facebook}
-          </button>
+              color:'#C0CBDA',cursor:'not-allowed',userSelect:'none',
+              position:'relative'}}>
+            <span style={{fontSize:18,opacity:0.4}}>{p==='apple'?'🍎':p==='google'?'🔵':'🔷'}</span>
+            <span style={{opacity:0.5}}>{p==='apple'?t.apple:p==='google'?t.google:t.facebook}</span>
+            <span style={{position:'absolute',right:12,fontSize:10,color:'#C9A84C',fontWeight:700,
+              background:'#FFFBF0',border:'1px solid #E8D897',borderRadius:4,padding:'1px 5px'}}>
+              {isZh?'即将推出':'Soon'}
+            </span>
+          </div>
         ))}
 
         <div style={{display:'flex',alignItems:'center',gap:10,margin:'12px 0'}}>
