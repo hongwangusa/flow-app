@@ -11,12 +11,14 @@ export async function addHabit(formData: FormData) {
   if (!user) redirect('/login')
 
   const title = (formData.get('title') as string)?.trim()
+  const xpRaw = parseInt(formData.get('xp_reward') as string, 10)
+  const xpReward = [5, 10, 15].includes(xpRaw) ? xpRaw : 10
   if (!title) return
 
   await supabase.from('habits').insert({
     user_id: user.id,
     title,
-    xp_reward: 15,
+    xp_reward: xpReward,
     streak_count: 0,
   })
 

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { askCoach, updatePersonality, LLM_OPTIONS, LLMProvider } from './actions'
+import { askCoach, updatePersonality, LLMProvider } from './actions'
+import { LLM_OPTIONS } from '@/lib/llm-options'
 
 interface Task { title: string; difficulty: string; is_completed: boolean }
 interface Profile {

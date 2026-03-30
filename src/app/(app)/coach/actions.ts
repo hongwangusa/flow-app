@@ -2,17 +2,9 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
+import type { LLMProvider } from '@/lib/llm-options'
 
-// ─── LLM Provider Registry ───────────────────────────────────────────────────
-
-export type LLMProvider = 'claude-haiku' | 'deepseek' | 'glm-flash' | 'gemini-flash'
-
-export const LLM_OPTIONS: Record<LLMProvider, { label: string; labelZh: string; flag: string; note: string; noteZh: string }> = {
-  'claude-haiku':  { label: 'Claude Haiku',   labelZh: 'Claude Haiku',  flag: '🤖', note: 'Fast & smart',    noteZh: '快速智能' },
-  'deepseek':      { label: 'DeepSeek V3',    labelZh: 'DeepSeek V3',   flag: '🔍', note: 'Deep reasoning',  noteZh: '深度推理' },
-  'glm-flash':     { label: 'GLM Flash',      labelZh: 'GLM 极速',       flag: '⚡', note: 'Ultra fast',      noteZh: '极速响应' },
-  'gemini-flash':  { label: 'Gemini Flash',   labelZh: 'Gemini Flash',  flag: '✨', note: 'Google AI',       noteZh: '谷歌AI' },
-}
+export type { LLMProvider }
 
 // ─── Personality Prompts ──────────────────────────────────────────────────────
 

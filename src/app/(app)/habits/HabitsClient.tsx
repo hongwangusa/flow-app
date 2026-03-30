@@ -28,6 +28,7 @@ export default function HabitsClient({ habits, level, xpCurrent, streakCurrent }
   const [isPending, startTransition] = useTransition()
   const [showForm, setShowForm] = useState(false)
   const [toast, setToast] = useState<number|null>(null)
+  const [xpReward, setXpReward] = useState(10)
 
   const xpTotal = xpForLevel(level)
   const pct = xpTotal > 0 ? Math.round((xpCurrent / xpTotal) * 100) : 0
@@ -119,25 +120,43 @@ export default function HabitsClient({ habits, level, xpCurrent, streakCurrent }
             {isZh?'+ 新习惯':'+ New Habit'}
           </button>
         ) : (
-          <form action={(fd) => { startTransition(async () => { await addHabit(fd); setShowForm(false) }) }}
+          <form action={(fd) => { startTransition(async () => { await addHabit(fd); setShowForm(false); setXpReward(10) }) }}
             style={{background:'#F8FAFC',border:'1px solid #E2E8F0',borderRadius:14,
-              padding:'14px',marginBottom:16,display:'flex',gap:8}}>
+              padding:'14px',marginBottom:16,display:'flex',flexDirection:'column',gap:8}}>
             <input name="title" required autoFocus
               placeholder={isZh?'习惯名称…':'Habit name…'}
-              style={{flex:1,padding:'9px 12px',background:'white',
+              style={{width:'100%',padding:'9px 12px',background:'white',
                 border:'1.5px solid #E2E8F0',borderRadius:10,fontSize:14,
-                color:'#0D1B2A',outline:'none'}}/>
-            <button type="button" onClick={() => setShowForm(false)}
-              style={{padding:'9px 12px',background:'white',border:'1.5px solid #E2E8F0',
-                borderRadius:10,fontSize:13,color:'#94A3B8',cursor:'pointer'}}>
-              {isZh?'取消':'Cancel'}
-            </button>
-            <button type="submit" disabled={isPending}
-              style={{padding:'9px 14px',background:'linear-gradient(135deg,#1B8A8F,#2ABFBF)',
-                border:'none',borderRadius:10,fontSize:13,fontWeight:700,
-                color:'white',cursor:'pointer'}}>
-              {isZh?'添加':'Add'}
-            </button>
+                color:'#0D1B2A',outline:'none',boxSizing:'border-box'}}/>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <span style={{fontSize:11,color:'#64748B',fontWeight:600,flexShrink:0}}>
+                {isZh?'XP奖励:':'XP Reward:'}
+              </span>
+              {[5,10,15].map(v => (
+                <button key={v} type="button" onClick={() => setXpReward(v)}
+                  style={{padding:'4px 10px',borderRadius:99,border:'1.5px solid',fontSize:12,fontWeight:700,
+                    cursor:'pointer',transition:'all .15s',
+                    borderColor: xpReward===v ? '#1B8A8F' : '#E2E8F0',
+                    background: xpReward===v ? '#1B8A8F' : 'white',
+                    color: xpReward===v ? 'white' : '#64748B'}}>
+                  +{v}
+                </button>
+              ))}
+              <input type="hidden" name="xp_reward" value={xpReward} />
+              <div style={{flex:1,display:'flex',gap:6,justifyContent:'flex-end'}}>
+                <button type="button" onClick={() => setShowForm(false)}
+                  style={{padding:'6px 10px',background:'white',border:'1.5px solid #E2E8F0',
+                    borderRadius:10,fontSize:12,color:'#94A3B8',cursor:'pointer'}}>
+                  {isZh?'取消':'Cancel'}
+                </button>
+                <button type="submit" disabled={isPending}
+                  style={{padding:'6px 14px',background:'linear-gradient(135deg,#1B8A8F,#2ABFBF)',
+                    border:'none',borderRadius:10,fontSize:12,fontWeight:700,
+                    color:'white',cursor:'pointer'}}>
+                  {isZh?'添加':'Add'}
+                </button>
+              </div>
+            </div>
           </form>
         )}
 
