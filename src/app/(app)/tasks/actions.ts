@@ -55,7 +55,7 @@ export async function completeTask(taskId: string) {
     .single()
 
   if (profile) {
-    const { xpCurrent, xpTotal, level } = applyXP(
+    const { xpCurrent, xpTotal, level, leveledUp } = applyXP(
       profile.xp_current ?? 0,
       profile.xp_total ?? 0,
       profile.level ?? 1,
@@ -81,6 +81,10 @@ export async function completeTask(taskId: string) {
       source: 'task',
       source_id: taskId,
     })
+
+    revalidatePath('/tasks')
+    revalidatePath('/dashboard')
+    return { leveledUp, newLevel: level }
   }
 
   revalidatePath('/tasks')

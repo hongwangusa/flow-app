@@ -2,6 +2,7 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import GameBackground from '@/components/GameBackground'
+import LevelUpModal from '@/components/LevelUpModal'
 import { addTask, completeTask, deleteTask } from './actions'
 import { xpForLevel } from '@/lib/xp'
 
@@ -35,6 +36,7 @@ export default function TasksClient({ tasks, level, xpCurrent, streakCurrent }: 
   const [isPending, startTransition] = useTransition()
   const [showForm, setShowForm] = useState(false)
   const [diff, setDiff] = useState<'easy'|'medium'|'hard'>('medium')
+  const [levelUpData, setLevelUpData] = useState<{ level: number } | null>(null)
 
   const pending = tasks.filter(t => !t.is_completed)
   const done    = tasks.filter(t => t.is_completed)
@@ -62,14 +64,24 @@ export default function TasksClient({ tasks, level, xpCurrent, streakCurrent }: 
   }
 
   function handleComplete(id: string) {
-    startTransition(async () => { await completeTask(id) })
+    startTransition(async () => {
+      const result = await completeTask(id)
+      if (result?.leveledUp) setLevelUpData({ level: result.newLevel })
+    })
   }
   function handleDelete(id: string) {
     startTransition(async () => { await deleteTask(id) })
   }
 
   return (
-    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:20, paddingBottom:80}}>
+      {levelUpData && (
+        <LevelUpModal
+          level={levelUpData.level}
+          lang={lang}
+          onClose={() => setLevelUpData(null)}
+        />
+      )}
       <GameBackground />
       <button onClick={() => setLang(isZh?'en':'zh')}
         style={{position:'fixed',top:18,right:18,zIndex:20,background:'rgba(255,255,255,0.85)',
