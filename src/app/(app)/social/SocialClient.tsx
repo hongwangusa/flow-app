@@ -163,7 +163,7 @@ export default function SocialClient({
                         <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: '#C9A84C' }}>+{item.amount} XP</span>
                       )}
                     </div>
-                    <div style={{ fontSize: 11, color: '#C0CBDA', marginTop: 3 }}>{getTimeAgo(item.created_at)}</div>
+                    <div style={{ fontSize: 11, color: '#C0CBDA', marginTop: 3 }} suppressHydrationWarning>{getTimeAgo(item.created_at)}</div>
                   </div>
                 </div>
               ))}

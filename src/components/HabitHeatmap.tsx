@@ -1,19 +1,26 @@
 'use client'
 
+import { useState, useEffect } from 'react'
+
 interface DayData {
   date: string
   count: number
 }
 
 export default function HabitHeatmap({ data }: { data: DayData[] }) {
-  // Generate last 30 days
-  const days = Array.from({ length: 30 }, (_, i) => {
-    const d = new Date()
-    d.setDate(d.getDate() - (29 - i))
-    const dateStr = d.toISOString().split('T')[0]
-    const found = data.find(x => x.date === dateStr)
-    return { date: dateStr, count: found?.count || 0 }
-  })
+  const [days, setDays] = useState<{ date: string; count: number }[]>([])
+
+  // Compute client-side only — server timezone (UTC) differs from client timezone,
+  // causing hydration mismatch if calculated during SSR.
+  useEffect(() => {
+    setDays(Array.from({ length: 30 }, (_, i) => {
+      const d = new Date()
+      d.setDate(d.getDate() - (29 - i))
+      const dateStr = d.toISOString().split('T')[0]
+      const found = data.find(x => x.date === dateStr)
+      return { date: dateStr, count: found?.count || 0 }
+    }))
+  }, [data])
 
   const getColor = (count: number) => {
     if (count === 0) return '#F1F5F9'
