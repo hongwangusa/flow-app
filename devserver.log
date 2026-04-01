@@ -1,0 +1,35 @@
+
+> flow-app@0.1.0 dev
+> next dev --port 3200
+
+  ▲ Next.js 14.2.15
+  - Local:        http://localhost:3200
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 17.2s
+ ✓ Compiled /src/middleware in 2.1s
+ ✓ Compiled (124 modules)
+ ○ Compiling /login ...
+ ✓ Compiled /login in 147.6s (634 modules)
+ ✓ Compiled in 2.8s (280 modules)
+ ○ Compiling / ...
+ ✓ Compiled / in 1662ms (602 modules)
+ GET / 307 in 2116ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 540ms (421 modules)
+ GET /login 200 in 944ms
+ GET / 307 in 1224ms
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 1257ms (713 modules)
+ GET /dashboard 200 in 3166ms
+ ○ Compiling /coach ...
+ ✓ Compiled /profile in 6.4s (829 modules)
+ ○ Compiling /tasks ...
+ ✓ Compiled /tasks in 2.2s (850 modules)
+ ○ Compiling /dashboard/plan ...
+ ✓ Compiled /dashboard/plan in 1391ms (735 modules)
+ ○ Compiling /tasks ...
+ ✓ Compiled /tasks in 686ms (541 modules)
+ ○ Compiling /habits ...
+ ✓ Compiled /habits in 999ms (849 modules)

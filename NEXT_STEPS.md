@@ -14,9 +14,10 @@
 
 1. Apply / confirm the latest Supabase migration:
    - `supabase/migrations/20260331_progression_and_pledges.sql`
-2. Run a browser QA pass with real auth + data
-3. Recheck production env vars and redirect URLs in Vercel / Supabase
-4. Deploy or redeploy only after the above checks pass
+2. Run a real Safari-on-macOS smoke test
+3. Run a browser QA pass with real auth + data
+4. Recheck production env vars and redirect URLs in Vercel / Supabase
+5. Deploy or redeploy only after the above checks pass
 
 ## Suggested QA Checklist
 
@@ -56,6 +57,7 @@
 - Local dev port is `3200`
 - ESLint is initialized via `.eslintrc.json`
 - If `next build` flakes with `/_document` on Windows after dev/build switching, clear `.next` and rerun
+- Do not run `next build` and `next dev` in parallel in the same repo; they can corrupt `.next`
 - Status dashboard lives in `STATUS.md`
 
 ## If You Resume This Project Later

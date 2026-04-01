@@ -25,6 +25,7 @@
 - `npm run build` passes on `2026-04-01`
 - `npm run dev` starts successfully on `http://localhost:3200`
 - `npx next lint --dir src` passes with no warnings or errors
+- Safari compatibility hardening added for glass/floating UI via `WebkitBackdropFilter` and safe-area padding
 - The app renders all main routes in the Next.js build output:
   - `/dashboard`
   - `/tasks`
@@ -39,6 +40,7 @@
 
 - Apply the latest SQL migration in Supabase if it has not been run yet:
   - `supabase/migrations/20260331_progression_and_pledges.sql`
+- Run a real Safari-on-macOS smoke test on a MacBook or desktop Safari browser
 - Do a browser smoke test against live data:
   - register / login
   - create + complete task
@@ -94,4 +96,5 @@ supabase/migrations/20260331_progression_and_pledges.sql
 
 - ESLint is now initialized via `.eslintrc.json`
 - On Windows, if `next build` throws a flaky `/_document` error after switching between dev and build, clear `.next` and rerun the build.
+- The flaky Next.js errors seen during this session were caused by running `next build` and `next dev` in parallel against the same `.next` directory. Sequential verification is stable.
 - Local verification is complete enough to continue development from a stable base.
