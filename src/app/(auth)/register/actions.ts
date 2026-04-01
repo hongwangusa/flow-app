@@ -38,6 +38,7 @@ export async function signUpWithEmail(formData: FormData) {
       xp_total: 0,
       streak_current: 0,
       streak_best: 0,
+      inventory_gold: 0,
     })
   }
 

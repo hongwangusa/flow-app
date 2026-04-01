@@ -1,231 +1,163 @@
-'use client'
-import { useState, useTransition } from 'react'
+﻿'use client'
+
+import { useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import GameBackground from '@/components/GameBackground'
-import { addHabit, completeHabit, deleteHabit } from './actions'
-import { xpForLevel } from '@/lib/xp'
+import HypeOverlay from '@/components/HypeOverlay'
+import { launchConfetti } from '@/lib/confetti'
+import { addHabitAction, completeHabitAction } from './actions'
 
-type Habit = {
+interface Habit {
   id: string
-  title: string
-  title_zh: string | null
-  xp_reward: number
-  streak_count: number
-  last_completed_date: string | null
-  done_today: boolean
+  name: string
+  zh: string
+  streak: number
+  done: boolean
+  emoji: string
+  quest_type?: 'daily' | 'epic'
+  pledge_amount?: number
+  pledge_target_days?: number
 }
 
-interface Props {
-  habits: Habit[]
-  level: number
-  xpCurrent: number
-  streakCurrent: number
-}
-
-export default function HabitsClient({ habits, level, xpCurrent, streakCurrent }: Props) {
-  const [lang, setLang] = useState<'en'|'zh'>('en')
-  const isZh = lang === 'zh'
+export default function HabitsClient({ initialHabits, lang = 'en' }: { initialHabits: Habit[]; lang?: string }) {
+  const [isZh, setLang] = useState(lang === 'zh')
+  const [habits, setHabits] = useState(initialHabits)
+  const [toast, setToast] = useState<string | null>(null)
+  const [hype, setHype] = useState<{ msg: string; sub?: string; type: 'level-up' | 'epic' | 'pledge' } | null>(null)
+  const [activeTab, setActiveTab] = useState<'daily' | 'epic'>('daily')
   const [isPending, startTransition] = useTransition()
-  const [showForm, setShowForm] = useState(false)
-  const [toast, setToast] = useState<number|null>(null)
-  const [xpReward, setXpReward] = useState(10)
 
-  const xpTotal = xpForLevel(level)
-  const pct = xpTotal > 0 ? Math.round((xpCurrent / xpTotal) * 100) : 0
-  const doneCount = habits.filter(h => h.done_today).length
+  const filteredHabits = useMemo(() => habits.filter((habit) => (habit.quest_type || 'daily') === activeTab), [habits, activeTab])
 
-  function handleComplete(id: string, xpReward: number) {
+  const text = {
+    title: isZh ? { daily: '每日习惯', epic: '史诗任务' } : { daily: 'Daily Habits', epic: 'Epic Quests' },
+    empty: isZh ? '这个分类还没有任务，来加一个吧。' : `No ${activeTab} quests yet. Add one.`,
+    input: isZh ? '输入新的任务...' : 'Add a new mission...',
+    days: isZh ? '天' : 'days',
+    add: isZh ? '创建' : 'Create',
+    back: isZh ? '返回仪表盘' : 'Back to Dashboard',
+  }
+
+  const completeHabit = (habitId: string) => {
+    const currentHabit = habits.find((habit) => habit.id === habitId)
+    if (!currentHabit || currentHabit.done || isPending) return
+
     startTransition(async () => {
-      await completeHabit(id)
-      setToast(xpReward)
-      setTimeout(() => setToast(null), 2000)
+      const result = await completeHabitAction(habitId)
+      if (!result?.success) return
+
+      setHabits((prev) => prev.map((habit) => (habit.id === habitId ? { ...habit, done: true, streak: habit.streak + 1 } : habit)))
+
+      if (result.levelUp) {
+        launchConfetti()
+        setHype({ msg: isZh ? '升级了！' : 'LEVEL UP!', sub: isZh ? '你的坚持开始滚雪球了。' : 'Your consistency is paying off.', type: 'level-up' })
+        return
+      }
+
+      if (result.isEpic) {
+        setHype({ msg: isZh ? '史诗胜利！' : 'EPIC VICTORY!', sub: isZh ? '这次完成拿到了额外金币。' : 'That completion paid out extra gold.', type: 'epic' })
+        return
+      }
+
+      setToast(`+${result.xpGained} XP`)
+      setTimeout(() => setToast(null), 1800)
     })
   }
-  function handleDelete(id: string) {
-    startTransition(async () => { await deleteHabit(id) })
-  }
 
-  const card: React.CSSProperties = {
-    background:'rgba(255,255,255,0.97)', borderRadius:24,
-    padding:'24px 24px 20px', width:'100%', maxWidth:460,
-    boxShadow:'0 24px 64px rgba(0,0,0,0.22)',
-    position:'relative', zIndex:10,
+  const handleAddSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    formData.append('quest_type', activeTab)
+
+    const rawTitle = String(formData.get('title') || '').trim()
+    const pledgeAmount = Number(formData.get('pledge') || 0)
+    const targetDays = Number(formData.get('target_days') || 0)
+    if (!rawTitle) return
+
+    startTransition(async () => {
+      const result = await addHabitAction(formData)
+      if (!result?.success) return
+
+      setHabits((prev) => [
+        {
+          id: `local-${Date.now()}`,
+          name: rawTitle,
+          zh: rawTitle,
+          streak: 0,
+          done: false,
+          emoji: activeTab === 'epic' ? '⚔️' : '⭐',
+          quest_type: activeTab,
+          pledge_amount: pledgeAmount,
+          pledge_target_days: targetDays,
+        },
+        ...prev,
+      ])
+
+      event.currentTarget.reset()
+
+      if (pledgeAmount > 0) {
+        setHype({ msg: isZh ? '押注已创建' : 'PLEDGE CREATED', sub: isZh ? `目标 ${targetDays} 天，押注 ${pledgeAmount}g` : `${pledgeAmount}g committed for ${targetDays} days`, type: 'pledge' })
+      }
+    })
   }
 
   return (
-    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <GameBackground />
 
-      {/* XP Toast */}
-      {toast !== null && (
-        <div style={{position:'fixed',top:60,right:18,zIndex:30,
-          background:'linear-gradient(135deg,#F5C842,#E8A020)',
-          borderRadius:99,padding:'8px 18px',fontWeight:800,fontSize:14,color:'#1A1200',
-          boxShadow:'0 4px 16px rgba(232,160,32,0.4)'}}>
-          +{toast} XP ⭐
-        </div>
-      )}
-
-      <button onClick={() => setLang(isZh?'en':'zh')}
-        style={{position:'fixed',top:18,right:18,zIndex:20,background:'rgba(255,255,255,0.85)',
-          border:'1px solid rgba(255,255,255,0.6)',borderRadius:20,padding:'5px 14px',
-          fontSize:13,fontWeight:600,cursor:'pointer',backdropFilter:'blur(8px)'}}>
-        {isZh?'EN':'中文'}
+      <button onClick={() => setLang(!isZh)} style={{ position: 'fixed', top: 18, right: 18, zIndex: 20, background: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.6)', borderRadius: 20, padding: '5px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', color: '#0D1B2A' }}>
+        {isZh ? 'EN' : '中文'}
       </button>
 
-      <div style={card}>
-        {/* Header */}
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-          <h1 style={{fontSize:20,fontWeight:900,color:'#0D1B2A'}}>
-            {isZh?'习惯追踪':'Habit Tracker'} 🔥
-          </h1>
-          <div style={{display:'flex',alignItems:'center',gap:8}}>
-            <span style={{fontSize:12,color:'#E8644B',fontWeight:700}}>🔥 {streakCurrent}</span>
-            <span style={{fontSize:12,color:'#C9A84C',fontWeight:700}}>⭐ Lv.{level}</span>
+      {toast && <div style={{ position: 'fixed', top: 40, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(135deg,#F5C842,#E8A020)', color: '#1A1200', padding: '12px 24px', borderRadius: 24, fontSize: 18, fontWeight: 800, boxShadow: '0 8px 32px rgba(232,160,32,0.4)', zIndex: 100 }}>{toast}</div>}
+      {hype && <HypeOverlay message={hype.msg} subtext={hype.sub} type={hype.type} onComplete={() => setHype(null)} />}
+
+      <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: 24, padding: '28px 24px 24px', maxWidth: 560, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,0.22)', position: 'relative', zIndex: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
+          <h1 style={{ margin: 0, fontSize: 28, color: '#0D1B2A', fontWeight: 800 }}>{activeTab === 'daily' ? text.title.daily : text.title.epic}</h1>
+          <div style={{ display: 'flex', gap: 8, background: '#F1F5F9', padding: 4, borderRadius: 12 }}>
+            <button onClick={() => setActiveTab('daily')} style={{ flex: 1, padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'daily' ? '#fff' : 'transparent', color: activeTab === 'daily' ? '#1B8A8F' : '#64748B', fontWeight: 700, cursor: 'pointer' }}>{isZh ? '每日' : 'Daily'}</button>
+            <button onClick={() => setActiveTab('epic')} style={{ flex: 1, padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'epic' ? '#fff' : 'transparent', color: activeTab === 'epic' ? '#E8644B' : '#64748B', fontWeight: 700, cursor: 'pointer' }}>{isZh ? '史诗' : 'Epic'}</button>
           </div>
         </div>
 
-        {/* XP bar */}
-        <div style={{marginBottom:14}}>
-          <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#9CA3AF',marginBottom:5}}>
-            <span>{isZh?'经验值':'XP'}</span>
-            <span>{xpCurrent} / {xpTotal}</span>
-          </div>
-          <div style={{height:6,background:'#E2E8F0',borderRadius:99,overflow:'hidden'}}>
-            <div style={{height:'100%',width:`${pct}%`,
-              background:'linear-gradient(90deg,#1B8A8F,#C9A84C)',borderRadius:99,transition:'width .8s ease'}}/>
-          </div>
-        </div>
+        <form onSubmit={handleAddSubmit} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) repeat(3, minmax(0, 1fr))', gap: 10, marginBottom: 28, background: 'rgba(27, 138, 143, 0.05)', padding: 16, borderRadius: 16, border: '1px solid #E2E8F0' }}>
+          <input name="title" placeholder={text.input} style={{ minWidth: 0, padding: 12, borderRadius: 12, border: '1px solid #CBD5E1', fontSize: 14 }} required />
+          <input name="pledge" type="number" defaultValue="0" step="5" min="0" style={{ minWidth: 0, padding: 12, borderRadius: 12, border: '1px solid #CBD5E1', fontSize: 14 }} />
+          <select name="target_days" defaultValue="7" style={{ minWidth: 0, padding: 12, borderRadius: 12, border: '1px solid #CBD5E1', fontSize: 14 }}>
+            <option value="7">7 {text.days}</option>
+            <option value="14">14 {text.days}</option>
+            <option value="30">30 {text.days}</option>
+          </select>
+          <button type="submit" disabled={isPending} style={{ border: 'none', borderRadius: 12, padding: '10px 16px', color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer', background: activeTab === 'daily' ? 'linear-gradient(135deg,#1B8A8F,#2ABFBF)' : 'linear-gradient(135deg,#E8644B,#F08E80)' }}>{text.add}</button>
+        </form>
 
-        {/* Today progress */}
-        <div style={{background:'#F8FAFC',border:'1px solid #E2E8F0',borderRadius:12,
-          padding:'10px 16px',marginBottom:16,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <span style={{fontSize:13,color:'#64748B',fontWeight:600}}>
-            {isZh?`今日 ${doneCount}/${habits.length} 完成`:`Today: ${doneCount}/${habits.length} done`}
-          </span>
-          {doneCount === habits.length && habits.length > 0 && (
-            <span style={{fontSize:12,color:'#1B8A8F',fontWeight:700}}>
-              {isZh?'🎉 全部完成！':'🎉 All done!'}
-            </span>
-          )}
-        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 28 }}>
+          {filteredHabits.length === 0 && <div style={{ textAlign: 'center', padding: '24px 0', color: '#94A3B8', fontSize: 14, fontStyle: 'italic' }}>{text.empty}</div>}
 
-        {/* Add habit */}
-        {!showForm ? (
-          <button onClick={() => setShowForm(true)}
-            style={{width:'100%',padding:'11px',marginBottom:16,
-              background:'linear-gradient(135deg,#F5C842,#E8A020)',
-              border:'none',borderRadius:14,fontSize:14,fontWeight:800,
-              color:'#1A1200',cursor:'pointer',boxShadow:'0 4px 16px rgba(232,160,32,0.35)'}}>
-            {isZh?'+ 新习惯':'+ New Habit'}
-          </button>
-        ) : (
-          <form action={(fd) => { startTransition(async () => { await addHabit(fd); setShowForm(false); setXpReward(10) }) }}
-            style={{background:'#F8FAFC',border:'1px solid #E2E8F0',borderRadius:14,
-              padding:'14px',marginBottom:16,display:'flex',flexDirection:'column',gap:8}}>
-            <input name="title" required autoFocus
-              placeholder={isZh?'习惯名称…':'Habit name…'}
-              style={{width:'100%',padding:'9px 12px',background:'white',
-                border:'1.5px solid #E2E8F0',borderRadius:10,fontSize:14,
-                color:'#0D1B2A',outline:'none',boxSizing:'border-box'}}/>
-            <div style={{display:'flex',alignItems:'center',gap:6}}>
-              <span style={{fontSize:11,color:'#64748B',fontWeight:600,flexShrink:0}}>
-                {isZh?'XP奖励:':'XP Reward:'}
-              </span>
-              {[5,10,15].map(v => (
-                <button key={v} type="button" onClick={() => setXpReward(v)}
-                  style={{padding:'4px 10px',borderRadius:99,border:'1.5px solid',fontSize:12,fontWeight:700,
-                    cursor:'pointer',transition:'all .15s',
-                    borderColor: xpReward===v ? '#1B8A8F' : '#E2E8F0',
-                    background: xpReward===v ? '#1B8A8F' : 'white',
-                    color: xpReward===v ? 'white' : '#64748B'}}>
-                  +{v}
-                </button>
-              ))}
-              <input type="hidden" name="xp_reward" value={xpReward} />
-              <div style={{flex:1,display:'flex',gap:6,justifyContent:'flex-end'}}>
-                <button type="button" onClick={() => setShowForm(false)}
-                  style={{padding:'6px 10px',background:'white',border:'1.5px solid #E2E8F0',
-                    borderRadius:10,fontSize:12,color:'#94A3B8',cursor:'pointer'}}>
-                  {isZh?'取消':'Cancel'}
-                </button>
-                <button type="submit" disabled={isPending}
-                  style={{padding:'6px 14px',background:'linear-gradient(135deg,#1B8A8F,#2ABFBF)',
-                    border:'none',borderRadius:10,fontSize:12,fontWeight:700,
-                    color:'white',cursor:'pointer'}}>
-                  {isZh?'添加':'Add'}
-                </button>
-              </div>
-            </div>
-          </form>
-        )}
-
-        {/* Habit list */}
-        {habits.length === 0 ? (
-          <div style={{textAlign:'center',padding:'24px 0',color:'#C0CBDA',fontSize:13}}>
-            {isZh?'还没有习惯，快添加一个吧！':'No habits yet — add your first!'}
-          </div>
-        ) : (
-          <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:20}}>
-            {habits.map(h => (
-              <div key={h.id} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',
-                background: h.done_today ? '#F0FAFB' : 'white',
-                border:`1.5px solid ${h.done_today ? '#A7D9DB' : '#E2E8F0'}`,
-                borderRadius:14,transition:'all .2s'}}>
-
-                <button onClick={() => !h.done_today && handleComplete(h.id, h.xp_reward)}
-                  disabled={isPending || h.done_today}
-                  style={{width:38,height:38,borderRadius:'50%',flexShrink:0,cursor: h.done_today?'default':'pointer',
-                    transition:'all .2s',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,
-                    background: h.done_today ? '#1B8A8F' : '#F0FAFB',
-                    border: h.done_today ? 'none' : '1.5px solid #A7D9DB',
-                    color: h.done_today ? 'white' : '#1B8A8F'}}>
-                  {h.done_today ? '✓' : '○'}
-                </button>
-
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:14,fontWeight:600,color: h.done_today?'#1B8A8F':'#0D1B2A',
-                    textDecoration: h.done_today?'line-through':'none',
-                    whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-                    {isZh && h.title_zh ? h.title_zh : h.title}
-                  </div>
-                  <div style={{display:'flex',gap:8,marginTop:3}}>
-                    <span style={{fontSize:11,color:'#E8644B',fontWeight:600}}>
-                      🔥 {h.streak_count} {isZh?'天':'days'}
-                    </span>
-                    <span style={{fontSize:11,color:'#C9A84C',fontWeight:600}}>
-                      +{h.xp_reward} XP
-                    </span>
+          {filteredHabits.map((habit) => (
+            <div key={habit.id} style={{ background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: 16, padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, transition: 'all 0.2s', opacity: habit.done ? 0.72 : 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
+                <div style={{ fontSize: 28 }}>{habit.emoji}</div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: habit.done ? '#94A3B8' : '#0D1B2A', textDecoration: habit.done ? 'line-through' : 'none', marginBottom: 4 }}>{isZh ? habit.zh : habit.name}</div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ fontSize: 12, color: '#E8644B', fontWeight: 600 }}>🔥 {habit.streak} {text.days}</div>
+                    {(habit.pledge_amount || 0) > 0 && <div style={{ fontSize: 10, background: '#F5C842', color: '#1A1200', padding: '2px 6px', borderRadius: 6, fontWeight: 800 }}>{isZh ? '押注' : 'PLEDGE'} {habit.pledge_amount}g / {habit.pledge_target_days}{isZh ? '天' : 'd'}</div>}
                   </div>
                 </div>
-
-                <button onClick={() => handleDelete(h.id)} disabled={isPending}
-                  style={{background:'none',border:'none',cursor:'pointer',
-                    fontSize:14,color:'#E2E8F0',padding:'4px',borderRadius:6}}
-                  onMouseEnter={e => (e.currentTarget.style.color='#E8644B')}
-                  onMouseLeave={e => (e.currentTarget.style.color='#E2E8F0')}>
-                  ✕
-                </button>
               </div>
-            ))}
-          </div>
-        )}
 
-        <div style={{display:'flex',gap:8}}>
-          <Link href="/tasks"
-            style={{flex:1,textAlign:'center',padding:'10px',
-              background:'linear-gradient(135deg,#F5C842,#E8A020)',
-              borderRadius:12,fontSize:13,fontWeight:700,color:'#1A1200',textDecoration:'none'}}>
-            {isZh?'⚔️ 任务':'⚔️ Quests'}
-          </Link>
-          <Link href="/dashboard"
-            style={{flex:1,textAlign:'center',padding:'10px',background:'#F0FAFB',
-              border:'1.5px solid #A7D9DB',borderRadius:12,fontSize:13,fontWeight:700,
-              color:'#1B8A8F',textDecoration:'none'}}>
-            {isZh?'← 主页':'← Home'}
-          </Link>
+              <button onClick={() => completeHabit(habit.id)} disabled={habit.done || isPending} style={{ width: 52, height: 52, borderRadius: 26, border: habit.done ? 'none' : '2px solid #E2E8F0', background: habit.done ? '#F1F5F9' : '#fff', color: habit.done ? '#64748B' : '#1B8A8F', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, cursor: habit.done ? 'default' : 'pointer', flexShrink: 0 }}>
+                {habit.done ? '✓' : isZh ? '做' : 'Go'}
+              </button>
+            </div>
+          ))}
         </div>
-        <p style={{textAlign:'center',marginTop:10,fontSize:11,color:'#C0CBDA'}}>v0.1 Beta · Flow / 流动</p>
+
+        <div style={{ textAlign: 'center' }}>
+          <Link href="/dashboard" style={{ color: '#94A3B8', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>{text.back}</Link>
+        </div>
       </div>
     </div>
   )

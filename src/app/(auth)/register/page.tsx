@@ -53,7 +53,7 @@ export default function RegisterPage() {
       <button onClick={() => setLang(isZh?'en':'zh')}
         style={{position:'fixed',top:18,right:18,zIndex:20,background:'rgba(255,255,255,0.85)',
           border:'1px solid rgba(255,255,255,0.6)',borderRadius:20,padding:'5px 14px',
-          fontSize:13,fontWeight:600,cursor:'pointer',backdropFilter:'blur(8px)'}}>
+          fontSize:13,fontWeight:600,cursor:'pointer',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)'}}>
         {isZh?'EN':'中文'}
       </button>
 

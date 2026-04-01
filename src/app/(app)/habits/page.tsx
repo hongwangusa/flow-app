@@ -1,39 +1,41 @@
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
 import HabitsClient from './HabitsClient'
 
 export default async function HabitsPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
   if (!user) redirect('/login')
 
-  const today = new Date().toISOString().slice(0, 10)
+  const { data: profile } = await supabase
+    .from('users')
+    .select('lang_preference')
+    .eq('id', user.id)
+    .single()
 
-  const [{ data: habits }, { data: profile }] = await Promise.all([
-    supabase
-      .from('habits')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .order('created_at', { ascending: true }),
-    supabase
-      .from('users')
-      .select('level, xp_current, streak_current')
-      .eq('id', user.id)
-      .single(),
-  ])
+  const { data: habits } = await supabase
+    .from('habits')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
 
-  const habitsWithDoneFlag = (habits ?? []).map(h => ({
-    ...h,
-    done_today: h.last_completed_date === today,
-  }))
+  const today = new Date().toISOString().split('T')[0]
 
-  return (
-    <HabitsClient
-      habits={habitsWithDoneFlag}
-      level={profile?.level ?? 1}
-      xpCurrent={profile?.xp_current ?? 0}
-      streakCurrent={profile?.streak_current ?? 0}
-    />
-  )
+  const formattedHabits =
+    habits?.map((habit) => ({
+      id: habit.id,
+      name: habit.title,
+      zh: habit.title_zh || habit.title,
+      streak: habit.streak_count || 0,
+      done: habit.last_completed_date === today,
+      emoji: habit.quest_type === 'epic' ? '⚔️' : '⭐',
+      quest_type: habit.quest_type || 'daily',
+      pledge_amount: habit.pledge_amount || 0,
+      pledge_target_days: habit.pledge_target_days || 0,
+    })) ?? []
+
+  return <HabitsClient initialHabits={formattedHabits} lang={profile?.lang_preference || 'en'} />
 }

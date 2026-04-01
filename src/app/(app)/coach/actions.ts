@@ -164,3 +164,41 @@ export async function updatePersonality(personality: 'mentor' | 'cheerleader' | 
   if (!user) return
   await supabase.from('users').update({ coach_personality: personality }).eq('id', user.id)
 }
+
+export async function autoTriggerCoachMessage(
+  userId: string,
+  event: 'task_complete' | 'level_up' | 'streak_milestone',
+  metadata?: any
+): Promise<string> {
+  const supabase = await createClient()
+  const { data: profile } = await supabase
+    .from('users')
+    .select('name, level, xp_current, streak_current, streak_best, coach_personality, lang_preference')
+    .eq('id', userId)
+    .single()
+
+  if (!profile) return ''
+
+  const personality = (profile.coach_personality as 'mentor' | 'cheerleader' | 'analyst') || 'mentor'
+  const lang = (profile.lang_preference || 'en') as 'en' | 'zh'
+  const llm: LLMProvider = 'glm-flash' // Fast/Free for auto-triggers
+
+  const eventPrompt = lang === 'zh'
+    ? `我刚刚完成了任务：${metadata?.title || '计划'}。请作为我的${personality === 'mentor' ? '导师' : personality === 'cheerleader' ? '啦啦队' : '分析师'}教练，给我一句超级简短（15字以内）的评价或鼓励。`
+    : `I just completed a task: ${metadata?.title || 'a quest'}. As my ${personality} coach, give me ONE very short sentence ($<$15 words) of feedback/hype.`
+
+  const { reply } = await askCoach({
+    name: profile.name || 'Explorer',
+    level: profile.level || 1,
+    xpCurrent: profile.xp_current || 0,
+    streakCurrent: profile.streak_current || 0,
+    streakBest: profile.streak_best || 0,
+    personality,
+    lang,
+    llm,
+    recentTasks: [],
+    userMessage: eventPrompt
+  })
+
+  return reply
+}

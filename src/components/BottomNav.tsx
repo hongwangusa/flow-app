@@ -19,9 +19,11 @@ export default function BottomNav({ lang = 'en' }: { lang?: 'en' | 'zh' }) {
       position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
       background: 'rgba(255,255,255,0.97)',
       backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
       borderTop: '1px solid #F0F4F8',
       boxShadow: '0 -4px 20px rgba(0,0,0,0.08)',
       display: 'flex', height: 64,
+      paddingBottom: 'env(safe-area-inset-bottom)',
     }}>
       {NAV_ITEMS.map(item => {
         const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))

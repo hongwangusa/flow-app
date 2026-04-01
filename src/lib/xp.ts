@@ -10,6 +10,11 @@ export function xpForLevel(level: number): number {
   return level * 100
 }
 
+export function totalXpForDisplay(level: number, xpCurrent: number): number {
+  const completedLevelsXp = Math.max(0, (level - 1) * level * 50)
+  return completedLevelsXp + xpCurrent
+}
+
 /** Apply earned XP to a user's current level/xp, returning new values. */
 export function applyXP(
   xpCurrent: number,
@@ -22,9 +27,8 @@ export function applyXP(
   let newLevel = level
   let leveledUp = false
 
-  const needed = xpForLevel(newLevel)
-  if (newXp >= needed) {
-    newXp -= needed
+  while (newXp >= xpForLevel(newLevel)) {
+    newXp -= xpForLevel(newLevel)
     newLevel++
     leveledUp = true
   }

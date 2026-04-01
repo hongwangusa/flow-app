@@ -37,6 +37,7 @@ export default function TasksClient({ tasks, level, xpCurrent, streakCurrent }: 
   const [showForm, setShowForm] = useState(false)
   const [diff, setDiff] = useState<'easy'|'medium'|'hard'>('medium')
   const [levelUpData, setLevelUpData] = useState<{ level: number } | null>(null)
+  const [coachReply, setCoachReply] = useState<string | null>(null)
 
   const pending = tasks.filter(t => !t.is_completed)
   const done    = tasks.filter(t => t.is_completed)
@@ -64,9 +65,14 @@ export default function TasksClient({ tasks, level, xpCurrent, streakCurrent }: 
   }
 
   function handleComplete(id: string) {
+    setCoachReply(null)
     startTransition(async () => {
       const result = await completeTask(id)
       if (result?.leveledUp) setLevelUpData({ level: result.newLevel })
+      if (result?.coachMsg) {
+        setCoachReply(result.coachMsg)
+        setTimeout(() => setCoachReply(null), 5000)
+      }
     })
   }
   function handleDelete(id: string) {
@@ -86,7 +92,7 @@ export default function TasksClient({ tasks, level, xpCurrent, streakCurrent }: 
       <button onClick={() => setLang(isZh?'en':'zh')}
         style={{position:'fixed',top:18,right:18,zIndex:20,background:'rgba(255,255,255,0.85)',
           border:'1px solid rgba(255,255,255,0.6)',borderRadius:20,padding:'5px 14px',
-          fontSize:13,fontWeight:600,cursor:'pointer',backdropFilter:'blur(8px)'}}>
+          fontSize:13,fontWeight:600,cursor:'pointer',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)'}}>
         {isZh?'EN':'中文'}
       </button>
 
@@ -204,7 +210,21 @@ export default function TasksClient({ tasks, level, xpCurrent, streakCurrent }: 
           style={{display:'block',textAlign:'center',fontSize:13,color:'#94A3B8',textDecoration:'none'}}>
           {t.back}
         </Link>
-        <p style={{textAlign:'center',marginTop:8,fontSize:11,color:'#C0CBDA'}}>v0.1 Beta · Flow / 流动</p>
+        <p style={{textAlign:'center',marginTop:8,fontSize:11,color:'#C0CBDA'}}>v0.2 Beta · Flow / 流动</p>
+
+        {/* Coach Feedback Bubble */}
+        {coachReply && (
+          <div style={{
+            position: 'fixed', bottom: 30, left: '50%', transform: 'translateX(-50%)',
+            background: 'rgba(27, 138, 143, 0.95)', color: 'white', padding: '12px 20px',
+            borderRadius: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.2)', zIndex: 100,
+            fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10,
+            border: '2px solid rgba(255,255,255,0.2)', width: 'max-content', maxWidth: '85%'
+          }}>
+            <span style={{fontSize: 20}}>🤖</span>
+            <span>{coachReply}</span>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -29,6 +29,8 @@ export async function addTask(formData: FormData) {
   revalidatePath('/dashboard')
 }
 
+import { autoTriggerCoachMessage } from '../coach/actions'
+
 export async function completeTask(taskId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -36,9 +38,8 @@ export async function completeTask(taskId: string) {
 
   const { data: task } = await supabase
     .from('tasks')
-    .select('xp_reward, is_completed')
+    .select('title, xp_reward, is_completed')
     .eq('id', taskId)
-    .eq('user_id', user.id)
     .single()
 
   if (!task || task.is_completed) return
@@ -46,7 +47,6 @@ export async function completeTask(taskId: string) {
   await supabase.from('tasks')
     .update({ is_completed: true, completed_at: new Date().toISOString() })
     .eq('id', taskId)
-    .eq('user_id', user.id)
 
   const { data: profile } = await supabase
     .from('users')
@@ -63,32 +63,27 @@ export async function completeTask(taskId: string) {
     )
     const today = new Date().toISOString().slice(0, 10)
     const newStreak = calcStreak(profile.streak_current ?? 0, profile.last_active_date)
-    const newStreakBest = Math.max(newStreak, profile.streak_best ?? 0)
-
+    
     await supabase.from('users').update({
-      xp_current: xpCurrent,
-      xp_total: xpTotal,
-      level,
-      streak_current: newStreak,
-      streak_best: newStreakBest,
-      last_active_date: today,
-      updated_at: new Date().toISOString(),
+      xp_current: xpCurrent, xp_total: xpTotal, level,
+      streak_current: newStreak, last_active_date: today
     }).eq('id', user.id)
 
+    // Log XP
     await supabase.from('xp_log').insert({
-      user_id: user.id,
-      amount: task.xp_reward,
-      source: 'task',
-      source_id: taskId,
+      user_id: user.id, amount: task.xp_reward, source: 'task', source_id: taskId
     })
+
+    // Get Coach Feedback
+    const coachMsg = await autoTriggerCoachMessage(user.id, 'task_complete', { title: task.title })
 
     revalidatePath('/tasks')
     revalidatePath('/dashboard')
-    return { leveledUp, newLevel: level }
+    return { leveledUp, newLevel: level, coachMsg }
   }
 
   revalidatePath('/tasks')
-  revalidatePath('/dashboard')
+  return { success: true }
 }
 
 export async function deleteTask(taskId: string) {

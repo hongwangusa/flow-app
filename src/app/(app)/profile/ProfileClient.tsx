@@ -1,149 +1,131 @@
-'use client'
+﻿'use client'
+
 import { useState } from 'react'
 import Link from 'next/link'
 import GameBackground from '@/components/GameBackground'
-import { xpForLevel } from '@/lib/xp'
+import HabitHeatmap from '@/components/HabitHeatmap'
+import { totalXpForDisplay, xpForLevel } from '@/lib/xp'
 
 const LEVEL_TITLES = [
-  { min:1,  max:5,  en:'Initiate Disciple',    zh:'入门弟子' },
-  { min:6,  max:15, en:'Foundation Builder',   zh:'筑基期' },
-  { min:16, max:30, en:'Golden Core',           zh:'金丹期' },
-  { min:31, max:50, en:'Nascent Soul',          zh:'元婴期' },
-  { min:51, max:75, en:'Spirit Transformation', zh:'化神期' },
-  { min:76, max:99, en:'Tribulation Crossing',  zh:'渡劫期' },
+  { min: 1, max: 5, en: 'Pichu', zh: '皮丘', emoji: '🐣' },
+  { min: 6, max: 15, en: 'Pikachu', zh: '皮卡丘', emoji: '⚡' },
+  { min: 16, max: 30, en: 'Raichu', zh: '雷丘', emoji: '🦊' },
+  { min: 31, max: 50, en: 'Suicune', zh: '水君', emoji: '🐉' },
+  { min: 51, max: 75, en: 'Lugia', zh: '洛奇亚', emoji: '🪽' },
+  { min: 76, max: 99, en: 'Arceus', zh: '阿尔宙斯', emoji: '✨' },
 ]
+
 function getLevelTitle(level: number) {
-  return LEVEL_TITLES.find(t => level >= t.min && level <= t.max) || LEVEL_TITLES[0]
+  return LEVEL_TITLES.find((title) => level >= title.min && level <= title.max) || LEVEL_TITLES[0]
 }
 
-interface Props {
+interface ProfileClientProps {
   name: string
   level: number
   xpCurrent: number
   xpTotal: number
-  streakCurrent: number
-  streakBest: number
+  streak: number
   tasksCompleted: number
-  tasksTotal: number
+  langPref: 'en' | 'zh'
+  coachPersonality: 'mentor' | 'cheerleader' | 'analyst'
+  heatmapData: Array<{ date: string; count: number }>
 }
 
-export default function ProfileClient({ name, level, xpCurrent, xpTotal, streakCurrent, streakBest, tasksCompleted, tasksTotal }: Props) {
-  const [lang, setLang] = useState<'en'|'zh'>('en')
-  const isZh = lang === 'zh'
+export default function ProfileClient({ name, level, xpCurrent, xpTotal, streak, tasksCompleted, langPref, coachPersonality, heatmapData }: ProfileClientProps) {
+  const [isZh, setLang] = useState(langPref === 'zh')
+  const [personality, setPersonality] = useState<'mentor' | 'cheerleader' | 'analyst'>(coachPersonality || 'mentor')
+  const [isSaving, setIsSaving] = useState(false)
+
   const title = getLevelTitle(level)
   const xpNeeded = xpForLevel(level)
-  const pct = xpNeeded > 0 ? Math.round((xpCurrent / xpNeeded) * 100) : 0
+  const totalXp = Math.max(xpTotal, totalXpForDisplay(level, xpCurrent))
 
-  // Achievements unlocked based on real data
-  const achievements = [
-    { icon:'🌟', en:'First Quest',    zh:'第一任务',  unlocked: tasksCompleted >= 1 },
-    { icon:'🔥', en:'3-Day Streak',   zh:'三日连击',  unlocked: streakBest >= 3 },
-    { icon:'⚔️', en:'Quest Master',  zh:'任务大师',  unlocked: tasksCompleted >= 10 },
-    { icon:'📚', en:'Scholar',        zh:'学者',      unlocked: tasksCompleted >= 25 },
-    { icon:'🏆', en:'Champion',       zh:'冠军',      unlocked: streakBest >= 7 },
-    { icon:'💎', en:'Legend',         zh:'传说',      unlocked: level >= 10 },
-  ]
-
-  const card: React.CSSProperties = {
-    background:'rgba(255,255,255,0.97)', borderRadius:24,
-    padding:'32px 28px 24px', width:'100%', maxWidth:400,
-    boxShadow:'0 24px 64px rgba(0,0,0,0.22)',
-    position:'relative', zIndex:10,
+  const handleSavePersonality = async (nextPersonality: 'mentor' | 'cheerleader' | 'analyst') => {
+    setPersonality(nextPersonality)
+    setIsSaving(true)
+    try {
+      const { updateProfileAction } = await import('./actions')
+      await updateProfileAction({ coach_personality: nextPersonality })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
-    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <GameBackground />
-      <button onClick={() => setLang(isZh?'en':'zh')}
-        style={{position:'fixed',top:18,right:18,zIndex:20,background:'rgba(255,255,255,0.85)',
-          border:'1px solid rgba(255,255,255,0.6)',borderRadius:20,padding:'5px 14px',
-          fontSize:13,fontWeight:600,cursor:'pointer',backdropFilter:'blur(8px)'}}>
-        {isZh?'EN':'中文'}
+      <button onClick={() => setLang(!isZh)} style={{ position: 'fixed', top: 18, right: 18, zIndex: 20, background: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.6)', borderRadius: 20, padding: '5px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', color: '#0D1B2A' }}>
+        {isZh ? 'EN' : '中文'}
       </button>
 
-      <div style={card}>
-        {/* Hero Avatar */}
-        <div style={{textAlign:'center',marginBottom:20}}>
-          <div style={{width:80,height:80,borderRadius:'50%',margin:'0 auto 12px',
-            background:'linear-gradient(135deg,#1B8A8F,#2ABFBF)',
-            border:'3px solid #C9A84C',display:'flex',alignItems:'center',
-            justifyContent:'center',fontSize:32,fontWeight:900,color:'white',
-            boxShadow:'0 4px 16px rgba(27,138,143,0.3)'}}>
-            {name.charAt(0).toUpperCase()}
-          </div>
-          <h2 style={{fontSize:22,fontWeight:900,color:'#0D1B2A',marginBottom:6}}>{name}</h2>
-          <span style={{background:'#F0FAFB',border:'1.5px solid #A7D9DB',borderRadius:99,
-            padding:'3px 14px',fontSize:13,fontWeight:700,color:'#1B8A8F'}}>
-            Lv.{level} · {isZh ? title.zh : title.en}
-          </span>
+      <div style={{ background: 'rgba(255,255,255,0.97)', borderRadius: 24, padding: '36px 32px 28px', maxWidth: 420, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,0.22)', position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ width: 80, height: 80, borderRadius: 40, background: '#1B8A8F', border: '3px solid #C9A84C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, marginBottom: 16, boxShadow: '0 8px 24px rgba(27,138,143,0.3)' }}>
+          {title.emoji}
         </div>
 
-        {/* XP Bar */}
-        <div style={{background:'#F8FAFC',border:'1px solid #E2E8F0',borderRadius:12,
-          padding:'12px 16px',marginBottom:16}}>
-          <div style={{display:'flex',justifyContent:'space-between',fontSize:12,
-            color:'#64748B',fontWeight:600,marginBottom:8}}>
-            <span>{isZh?'下一等级':'XP to next level'}</span>
-            <span>{xpCurrent} / {xpNeeded} XP</span>
+        <h1 style={{ margin: 0, fontSize: 28, color: '#0D1B2A', fontWeight: 800 }}>{name}</h1>
+
+        <div style={{ background: '#F8FAFC', border: '1.5px solid #1B8A8F', color: '#1B8A8F', padding: '4px 16px', borderRadius: 20, fontSize: 13, fontWeight: 700, margin: '12px 0 24px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 8, height: 8, background: '#1B8A8F', borderRadius: 4 }} />
+          {isZh ? title.zh : title.en} (Lv.{level})
+        </div>
+
+        <div style={{ width: '100%', marginBottom: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#64748B', marginBottom: 8, fontWeight: 600 }}>
+            <span>{isZh ? '升级进度' : 'XP to next level'}</span>
+            <span>{xpCurrent} / {xpNeeded}</span>
           </div>
-          <div style={{height:8,background:'#E2E8F0',borderRadius:99,overflow:'hidden'}}>
-            <div style={{height:'100%',width:`${pct}%`,
-              background:'linear-gradient(90deg,#1B8A8F,#C9A84C)',borderRadius:99,
-              transition:'width 1s ease'}}/>
+          <div style={{ height: 12, background: '#F8FAFC', borderRadius: 6, overflow: 'hidden', border: '1px solid #E2E8F0' }}>
+            <div style={{ height: '100%', width: `${Math.min(100, (xpCurrent / Math.max(1, xpNeeded)) * 100)}%`, background: 'linear-gradient(90deg, #1B8A8F, #2ABFBF)', borderRadius: 6 }} />
           </div>
         </div>
 
-        {/* Stats grid */}
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:20}}>
-          {[
-            { label:isZh?'等级':'Level',           value:level,                      color:'#1B8A8F' },
-            { label:isZh?'总经验':'Total XP',      value:xpTotal,                     color:'#C9A84C' },
-            { label:isZh?'当前连击':'🔥 Streak',   value:`${streakCurrent}d`,         color:'#E8644B' },
-            { label:isZh?'最佳连击':'Best Streak',  value:`${streakBest}d`,            color:'#E8644B' },
-            { label:isZh?'完成任务':'✅ Done',      value:tasksCompleted,              color:'#1B8A8F' },
-            { label:isZh?'总任务':'Total Tasks',    value:tasksTotal,                  color:'#6B7280' },
-          ].map(s => (
-            <div key={s.label} style={{background:'#F8FAFC',border:'1px solid #E2E8F0',
-              borderRadius:12,padding:'12px 10px',textAlign:'center'}}>
-              <div style={{fontSize:20,fontWeight:800,color:s.color,marginBottom:3}}>{s.value}</div>
-              <div style={{fontSize:11,color:'#9CA3AF',fontWeight:600}}>{s.label}</div>
-            </div>
-          ))}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, width: '100%', marginBottom: 32 }}>
+          <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 16, padding: 16, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <span style={{ fontSize: 24, fontWeight: 800, color: '#1B8A8F' }}>{level}</span>
+            <span style={{ fontSize: 12, color: '#64748B', fontWeight: 600, marginTop: 4 }}>{isZh ? '等级' : 'Level'}</span>
+          </div>
+          <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 16, padding: 16, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <span style={{ fontSize: 24, fontWeight: 800, color: '#1B8A8F' }}>{totalXp}</span>
+            <span style={{ fontSize: 12, color: '#64748B', fontWeight: 600, marginTop: 4 }}>{isZh ? '总经验' : 'Total XP'}</span>
+          </div>
+          <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 16, padding: 16, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <span style={{ fontSize: 24, fontWeight: 800, color: '#E8644B' }}>{streak}</span>
+            <span style={{ fontSize: 12, color: '#64748B', fontWeight: 600, marginTop: 4 }}>{isZh ? '连续天数' : 'Streak'}</span>
+          </div>
+          <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 16, padding: 16, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <span style={{ fontSize: 24, fontWeight: 800, color: '#C9A84C' }}>{tasksCompleted}</span>
+            <span style={{ fontSize: 12, color: '#64748B', fontWeight: 600, marginTop: 4 }}>{isZh ? '完成任务' : 'Tasks Done'}</span>
+          </div>
         </div>
 
-        {/* Achievements */}
-        <p style={{fontSize:12,fontWeight:700,color:'#64748B',textTransform:'uppercase',
-          letterSpacing:.6,marginBottom:10}}>{isZh?'成就':'Achievements'}</p>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:8,marginBottom:20}}>
-          {achievements.map(a => (
-            <div key={a.en} title={isZh?a.zh:a.en}
-              style={{aspectRatio:'1',borderRadius:12,display:'flex',alignItems:'center',
-                justifyContent:'center',fontSize:20,
-                background: a.unlocked ? '#F0FAFB' : '#F8FAFC',
-                border: a.unlocked ? '1.5px solid #A7D9DB' : '1.5px solid #E2E8F0',
-                opacity: a.unlocked ? 1 : 0.4,
-                filter: a.unlocked ? 'none' : 'grayscale(1)'}}>
-              {a.unlocked ? a.icon : '🔒'}
-            </div>
-          ))}
+        <div style={{ width: '100%', marginBottom: 32 }}>
+          <h3 style={{ fontSize: 14, color: '#64748B', fontWeight: 700, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>{isZh ? '教练性格' : 'Coach Personality'}</h3>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[
+              { id: 'mentor' as const, emoji: '🧭', label: isZh ? '导师' : 'Mentor' },
+              { id: 'cheerleader' as const, emoji: '📣', label: isZh ? '打气王' : 'Hypeman' },
+              { id: 'analyst' as const, emoji: '📊', label: isZh ? '分析师' : 'Analyst' },
+            ].map((option) => (
+              <button key={option.id} onClick={() => handleSavePersonality(option.id)} disabled={isSaving} style={{ flex: 1, padding: '12px 8px', borderRadius: 12, border: personality === option.id ? '2px solid #1B8A8F' : '1px solid #E2E8F0', background: personality === option.id ? 'rgba(27,138,143,0.05)' : 'white', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontSize: 20 }}>{option.emoji}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: personality === option.id ? '#1B8A8F' : '#64748B' }}>{option.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div style={{display:'flex',gap:8,marginBottom:8}}>
-          <Link href="/tasks"
-            style={{flex:1,textAlign:'center',padding:'10px',
-              background:'linear-gradient(135deg,#F5C842,#E8A020)',
-              borderRadius:12,fontSize:13,fontWeight:700,color:'#1A1200',textDecoration:'none',
-              boxShadow:'0 2px 8px rgba(232,160,32,0.3)'}}>
-            {isZh?'⚔️ 任务':'⚔️ Quests'}
-          </Link>
-          <Link href="/dashboard"
-            style={{flex:1,textAlign:'center',padding:'10px',background:'#F0FAFB',
-              border:'1.5px solid #A7D9DB',borderRadius:12,fontSize:13,fontWeight:700,
-              color:'#1B8A8F',textDecoration:'none'}}>
-            {isZh?'🏠 主页':'🏠 Home'}
-          </Link>
+        <div style={{ width: '100%', marginBottom: 32 }}>
+          <HabitHeatmap data={heatmapData || []} />
         </div>
-        <p style={{textAlign:'center',marginTop:10,fontSize:11,color:'#C0CBDA'}}>v0.1 Beta · Flow / 流动</p>
+
+        <button style={{ width: '100%', background: 'transparent', border: '2px solid #1B8A8F', color: '#1B8A8F', borderRadius: 14, padding: 14, fontSize: 16, fontWeight: 700, cursor: 'pointer', marginBottom: 16 }}>
+          {isZh ? '编辑资料' : 'Edit Profile'}
+        </button>
+
+        <Link href="/dashboard" style={{ color: '#94A3B8', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
+          {isZh ? '返回仪表盘' : 'Back to Dashboard'}
+        </Link>
       </div>
     </div>
   )

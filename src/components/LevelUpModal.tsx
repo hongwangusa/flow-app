@@ -51,6 +51,7 @@ export default function LevelUpModal({ level, onClose, lang = 'en' }: Props) {
         opacity: visible ? 1 : 0,
         transition: 'opacity 0.4s ease',
         backdropFilter: 'blur(4px)',
+        WebkitBackdropFilter: 'blur(4px)',
       }}
     >
       {/* Floating particles */}

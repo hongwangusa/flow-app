@@ -1,103 +1,119 @@
 'use server'
-
-import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
 import { applyXP, calcStreak } from '@/lib/xp'
 
-export async function addHabit(formData: FormData) {
+export async function completeHabitAction(habitId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const title = (formData.get('title') as string)?.trim()
-  const xpRaw = parseInt(formData.get('xp_reward') as string, 10)
-  const xpReward = [5, 10, 15].includes(xpRaw) ? xpRaw : 10
-  if (!title) return
-
-  await supabase.from('habits').insert({
+  if (!user) return { error: 'Not authorized' }
+  
+  let isLevelUp = false
+  const today = new Date().toISOString().split('T')[0]
+  
+  const { data: habit } = await supabase.from('habits').select('*, quest_type, pledge_amount, pledge_target_days').eq('id', habitId).eq('user_id', user.id).single()
+  if (!habit) return { error: 'Habit not found' }
+  if (habit.last_completed_date === today) return { error: 'Already completed today' }
+  
+  // 1. Update Habit streak and date
+  await supabase.from('habits').update({ 
+    last_completed_date: today,
+    streak_count: (habit.streak_count || 0) + 1
+  }).eq('id', habitId)
+  
+  // 2. Add XP Log
+  const xpReward = habit.xp_reward || 10
+  await supabase.from('xp_log').insert({
     user_id: user.id,
-    title,
-    xp_reward: xpReward,
-    streak_count: 0,
+    amount: xpReward,
+    source: 'habit_completion',
+    source_id: habitId
   })
-
-  revalidatePath('/habits')
-}
-
-export async function completeHabit(habitId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const today = new Date().toISOString().slice(0, 10)
-
-  const { data: habit } = await supabase
-    .from('habits')
-    .select('xp_reward, streak_count, last_completed_date')
-    .eq('id', habitId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (!habit) return
-  if (habit.last_completed_date === today) return // already done today
-
-  // Calc new streak
-  const newStreak = calcStreak(habit.streak_count ?? 0, habit.last_completed_date)
-
-  await supabase.from('habits')
-    .update({ streak_count: newStreak, last_completed_date: today })
-    .eq('id', habitId)
-    .eq('user_id', user.id)
-
-  // Award XP to user
+  
+  // 3. Update User XP and Gold
   const { data: profile } = await supabase
     .from('users')
-    .select('level, xp_current, xp_total, streak_current, streak_best, last_active_date')
+    .select('xp_current, xp_total, level, inventory_gold, streak_current, streak_best, last_active_date')
     .eq('id', user.id)
     .single()
-
   if (profile) {
-    const { xpCurrent, xpTotal, level } = applyXP(
+    const progression = applyXP(
       profile.xp_current ?? 0,
       profile.xp_total ?? 0,
       profile.level ?? 1,
-      habit.xp_reward ?? 15
+      xpReward
     )
-    const userStreak = calcStreak(profile.streak_current ?? 0, profile.last_active_date)
-    const streakBest = Math.max(userStreak, profile.streak_best ?? 0)
+    const newLevel = progression.level
+    // Award gold: 5g for daily, 20g for epic
+    let goldReward = habit.quest_type === 'epic' ? 20 : 5
+    
+    // Check for Pledge Success (2x stake back)
+    const habitStreak = (habit.streak_count || 0) + 1
+    if (habit.pledge_amount > 0 && habitStreak === habit.pledge_target_days) {
+      goldReward += (habit.pledge_amount * 2) 
+    }
 
-    await supabase.from('users').update({
-      xp_current: xpCurrent,
-      xp_total: xpTotal,
-      level,
-      streak_current: userStreak,
-      streak_best: streakBest,
-      last_active_date: today,
-      updated_at: new Date().toISOString(),
+    const newGold = (profile.inventory_gold || 0) + goldReward
+    const newStreak = calcStreak(profile.streak_current ?? 0, profile.last_active_date)
+    const bestStreak = Math.max(profile.streak_best ?? 0, newStreak)
+    const todayIso = new Date().toISOString().slice(0, 10)
+    isLevelUp = progression.leveledUp
+
+    await supabase.from('users').update({ 
+      xp_current: progression.xpCurrent,
+      xp_total: progression.xpTotal,
+      level: newLevel,
+      inventory_gold: newGold,
+      streak_current: newStreak,
+      streak_best: bestStreak,
+      last_active_date: todayIso,
     }).eq('id', user.id)
-
-    await supabase.from('xp_log').insert({
-      user_id: user.id,
-      amount: habit.xp_reward,
-      source: 'habit',
-      source_id: habitId,
-    })
   }
 
   revalidatePath('/habits')
   revalidatePath('/dashboard')
+  revalidatePath('/profile')
+  return { 
+    success: true, 
+    xpGained: xpReward, 
+    levelUp: isLevelUp, 
+    isEpic: habit.quest_type === 'epic' 
+  }
 }
 
-export async function deleteHabit(habitId: string) {
+export async function addHabitAction(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return { error: 'Not authorized' }
 
-  await supabase.from('habits')
-    .update({ is_active: false })
-    .eq('id', habitId)
-    .eq('user_id', user.id)
+  const title = formData.get('title') as string
+  const questType = formData.get('quest_type') as string || 'daily'
+  const pledgeAmount = parseInt(formData.get('pledge') as string || '0')
+  const targetDays = parseInt(formData.get('target_days') as string || '0')
+  
+  if (!title) return { error: 'Title required' }
+
+  // 1. Check & Deduct Pledge Stake
+  if (pledgeAmount > 0) {
+    const { data: profile } = await supabase.from('users').select('inventory_gold').eq('id', user.id).single()
+    if (!profile || profile.inventory_gold < pledgeAmount) {
+      return { error: 'Insufficient gold for this pledge!' }
+    }
+    await supabase.from('users').update({ 
+      inventory_gold: profile.inventory_gold - pledgeAmount 
+    }).eq('id', user.id)
+  }
+
+  await supabase.from('habits').insert({
+    user_id: user.id,
+    title: title,
+    title_zh: title, // Simplified for now
+    xp_reward: questType === 'epic' ? 50 : 10,
+    quest_type: questType,
+    pledge_amount: pledgeAmount,
+    pledge_target_days: targetDays
+  })
 
   revalidatePath('/habits')
+  return { success: true }
 }
